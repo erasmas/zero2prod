@@ -7,7 +7,11 @@
 
 pkgs.mkShell {
   buildInputs = with pkgs; [
+    pkg-config
+    openssl
     rust-bin.stable.latest.default
+    # rust-bin.nightly.latest.default
+    clippy
   ];
 
   RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
