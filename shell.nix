@@ -12,6 +12,7 @@ pkgs.mkShell {
     rust-bin.stable.latest.default
     # rust-bin.nightly.latest.default
     clippy
+    postgresql
   ];
 
   RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
