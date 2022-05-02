@@ -2,26 +2,42 @@ use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use serde::Deserialize;
 use sqlx::PgPool;
+use tracing::error;
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Subscription {
     name: String,
     email: String,
 }
 
+#[tracing::instrument(
+    name = "Adding a new subscriber",
+    skip(subscription, connection_pool),
+    fields(
+        email = %subscription.email,
+        name = %subscription.name
+    )
+)]
 pub async fn subscribe(
     subscription: web::Form<Subscription>,
     connection_pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    let request_id = Uuid::new_v4();
-    log::debug!(
-        "request_id {} - Adding '{}' '{}' as a new subscriber",
-        request_id,
-        subscription.name,
-        subscription.email
-    );
-    match sqlx::query!(
+    match insert_subscriber(&connection_pool, &subscription).await {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+#[tracing::instrument(
+    name = "Saving new subscriber in the database",
+    skip(subscription, connection_pool)
+)]
+pub async fn insert_subscriber(
+    connection_pool: &PgPool,
+    subscription: &Subscription,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -31,23 +47,11 @@ pub async fn subscribe(
         subscription.name,
         Utc::now()
     )
-    .execute(connection_pool.get_ref())
+    .execute(connection_pool)
     .await
-    {
-        Ok(_) => {
-            log::info!(
-                "request_id {} - New subscriber detauls have been saved",
-                request_id
-            );
-            HttpResponse::Ok().finish()
-        }
-        Err(e) => {
-            log::error!(
-                "request_id {} - Failed to execute query: {:?}",
-                request_id,
-                e
-            );
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    .map_err(|e| {
+        error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+    Ok(())
 }

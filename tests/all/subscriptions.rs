@@ -1,5 +1,4 @@
 use crate::helpers::spawn_app;
-use zero2prod::configuration::get_configuration;
 
 #[actix_rt::test]
 async fn subscribe_returns_200_for_valid_form_data() {
